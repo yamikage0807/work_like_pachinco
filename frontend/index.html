@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>応募者スクレイピングビューア</title>
+  <style>
+    img { max-width: 100%; height: auto; border: 1px solid #ccc; }
+    .info { margin: 10px 0; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>応募者スクレイピングテスト</h1>
+  <div class="info" id="name">氏名: 読み込み中…</div>
+  <div class="info" id="phone">電話番号: 読み込み中…</div>
+  <img id="screenshot" alt="応募者スクリーンショット">
+  
+  <script>
+    async function checkGAS() {
+      try {
+        const res = await fetch("https://script.google.com/macros/s/AKfycbwW6GwD3eRJawe0Xe-loNo_sfCvV_1ot3D-DxfPdjcl1P5JYQMsdsvXpL13oIcLp3E/exec");
+        const { flag, data } = await res.json();
+  
+        if (flag > 0 && data.length > 0) {
+          const firstMessage = typeof data[0] === "string" ? data[0] : JSON.stringify(data[0]);
+  
+          const apiRes = await fetch("http://localhost:8000/scrape", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              messages: [firstMessage]
+            })
+          });
+  
+          const result = await apiRes.json();
+          const r = result[0];
+  
+          if (r.status === "success") {
+            document.getElementById("name").textContent = "氏名: " + (r.name || "取得失敗");
+            document.getElementById("phone").textContent = "電話番号: " + (r.phone || "取得失敗");
+            document.getElementById("screenshot").src = "data:" + r.mimeType + ";base64," + r.screenshot;
+          } else {
+            console.error("❌ スクレイピングエラー:", r.message);
+          }
+        }
+      } catch (err) {
+        console.error("通信エラー:", err);
+      }
+    }
+  
+    setInterval(checkGAS, 5000);
+  </script>
+  
+</body>
+</html>
