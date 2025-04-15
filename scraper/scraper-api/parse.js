@@ -1,34 +1,23 @@
-function parseMessage(rawText) {
+export default function parseMessage(rawText) {
   const lines = rawText.split("\n").map(l => l.trim());
 
-  const nameLine = lines.find(l => l.includes("応募者名"));
-  const jobIdLine = lines.find(l => l.includes("応募求人"));
-  const loginLine = lines.find(l => l.includes("メールアドレス"));
-  const passLine = lines.find(l => l.includes("パスワード"));
-  const rawUrl = lines.find(l => l.includes("https://hr.type.jp/"));
-
-  const extractValue = (line, sep) => line?.split(sep)[1]?.replace("様", "").trim();
-
-  const name = extractValue(nameLine, "：") || extractValue(nameLine, ":");
-  const jobId = extractValue(jobIdLine, "：") || extractValue(jobIdLine, ":");
-  const loginId = extractValue(loginLine, ":");
-  const password = extractValue(passLine, ":");
-
-  if (!jobId || !loginId || !password) {
-    console.error("❌ パース失敗", { jobIdLine, loginLine, passLine });
-    throw new Error("応募メッセージの解析に失敗しました");
-  }
-
   return {
-    name,
-    jobId,
-    applicantId: jobId,
-    applicantUrl: `https://hr.type.jp/#/applicants/${jobId}`,
-    loginId,
-    password
-  };
+    name: extractValue(lines, "応募者名"),
+    loginId: extractValue(lines, "メールアドレス"),
+    password: extractValue(lines, "パスワード")
+  }
 }
 
-module.exports = {
-  parseMessage
-};
+function extractValue(lines, keyword) {
+  for (const line of lines) {
+    if (line.includes(keyword)) {
+      // 「:」または「：」で分割
+      const parts = line.split(/[:]|[：]/);
+      if (parts.length > 1) {
+        // 「様」がある場合は削除
+        return parts[1].trim().replace("様", "");
+      }
+    }
+  }
+  return null;
+}
