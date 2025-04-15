@@ -23,7 +23,7 @@
         if (flag > 0 && data.length > 0) {
           const firstMessage = typeof data[0] === "string" ? data[0] : JSON.stringify(data[0]);
   
-          const apiRes = await fetch("http://localhost:8000/scrape", {
+          const apiRes = await fetch("http://localhost:3000/scrape", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
