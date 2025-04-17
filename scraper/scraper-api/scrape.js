@@ -40,8 +40,7 @@ async function runScraper({ loginId, password, name }) {
     await page.goto(detailUrl, { waitUntil: "domcontentloaded" });
     await new Promise(res => setTimeout(res, 2000));
 
-    // スクリーンショット（Base64で即返却）前に追加
-  const { nameText, phoneText } = await page.evaluate(() => {
+    const { nameText, phoneText } = await page.evaluate(() => {
     const nameEl = document.querySelector('[data-test="label-name"]');
     const phoneEl = document.querySelector('[data-test="mobile"]');
     return {
