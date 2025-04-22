@@ -9,6 +9,7 @@ async function runScraper(rawMessage) {
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
+// TODO:  URL調整
   try {
     // マイナビ転職の企業ログインページにアクセス (URLは要確認)
     // 例: await page.goto("https://tenshoku.mynavi.jp/company/login/", { waitUntil: "domcontentloaded" });

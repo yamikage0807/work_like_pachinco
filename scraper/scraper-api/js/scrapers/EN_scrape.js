@@ -9,6 +9,7 @@ async function runScraper(rawMessage) {
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
+//   TODO:  URL調整
   try {
     // エンゲージのログインページにアクセス (直接応募URLに行く前にログインが必要な場合を想定)
     // 必要に応じてログインページのURLに変更してください
@@ -103,54 +104,24 @@ function parseMessage(rawText) {
 }
 
 if (require.main === module) {
-  // テスト用の入力データ (実際のメッセージ形式に合わせてください)
-  const testMessage = `
-エンゲージよりエンジニアのミカタに応募がありました。
+  // FastAPI連携時の標準入力引数からメッセージを受け取る
+  const input = process.argv[2];
 
-━━━━━━━━━━━━━━━━━
-
-【 応募職種 】
-
-ITエンジニア ◤年収UP＆理想の働き方を実現◢ フルリモ可／還元率最大90%／副業OK
-
-【 応募内容の閲覧用URL 】
-
-https://en-gage.net/company/manage/?apply_id=DUMMY_APPLY_ID
-
-※閲覧にはID、パスワードが必要です。
-
-
-━━━━━━━━━━━━━━━━━
-
-【ログイン情報】
-メールアドレス: test@example.com
-パスワード: testpassword
-面談者 小熊
- https://timerex.net/s/s.koguma_d39e/4c2d38e0
-`;
-
-  // 引数から入力を受け取る場合 (FastAPI連携時)
-  // const input = process.argv[2];
-  // const rawMessage = input ? JSON.parse(input) : testMessage; // JSON形式で渡される想定
-
-  const rawMessage = testMessage; // テスト用メッセージを直接使用
-
-  runScraper(rawMessage).then(result => {
-    // 🔵 FastAPI 側で受け取るデータ（stdout）
-    console.log("✅ スクレイピング成功");
-    // 結果が大きい場合があるのでファイルに書き出すか、必要な情報だけ表示
-    // process.stdout.write(JSON.stringify(result));
-    if (result.screenshot) {
-      console.log("Screenshot:", result.screenshot.substring(0, 100) + "..."); // 先頭のみ表示
-    }
-     console.log("Name:", result.name);
-     console.log("Phone:", result.phone);
-
-  }).catch(err => {
-    // 🔴 エラー処理は runScraper 内で行い stdout に出力される
-    console.error("❌ runScraper でキャッチされなかったエラー:", err);
-    process.exit(1); // ここでエラー終了させる場合
-  });
+  try {
+    const rawMessage = JSON.parse(input);
+    runScraper(rawMessage).then(result => {
+      // 🔵 FastAPI 側で受け取るデータ（stdout）
+      process.stdout.write(JSON.stringify(result));
+    }).catch(err => {
+      // 🔴 エラー処理は runScraper 内で行い stdout に出力される
+      process.stdout.write(JSON.stringify({ status: "error", message: err.message }));
+      process.exit(0); // エラーでもFastAPI側で処理を続けるため正常終了扱い
+    });
+  } catch (err) {
+    // JSONパース失敗時
+    process.stdout.write(JSON.stringify({ status: "error", message: err.message }));
+    process.exit(0);
+  }
 }
 
 module.exports = { runScraper, parseMessage };
