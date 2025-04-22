@@ -73,7 +73,8 @@
           console.log("New data received, playing sound...");
           await playSound(); // AudioContextを使用して通知音を再生
           const firstMessage = typeof data[0] === "string" ? data[0] : JSON.stringify(data[0]);
-  
+
+          const startTime = performance.now(); // Start timing
           const apiRes = await fetch("http://localhost:3000/scrape_type", {
             method: "POST",
             headers: {
@@ -83,6 +84,8 @@
               messages: [firstMessage]
             })
           });
+          const endTime = performance.now(); // End timing
+          console.log(`Request to localhost took ${endTime - startTime} ms`);
   
           const result = await apiRes.json();
           const r = result[0];

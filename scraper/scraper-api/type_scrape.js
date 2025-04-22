@@ -6,21 +6,21 @@ async function runScraper(rawMessage) {
   const page = await browser.newPage();
 
   try {
-    //console.log("🟡 ログインページへアクセス");
+    //typeのログインページにアクセス
     await page.goto("https://hr.type.jp/#/", { waitUntil: "domcontentloaded" });
 
     await page.type("#loginId", loginId);
     await page.type("#loginPassword", password);
     await page.click('[data-test="login-button"]');
 
-    //console.log("✅ ログイン完了 → SPA描画待機");
+    //ログイン完了、SPAの描画待機(待機時間動的にしたいけどうまくいかなかったのでこのまま)
     await new Promise(res => setTimeout(res, 2000));
 
-    //console.log("🟢 応募者一覧ページへ遷移中...");
+    //応募者一覧のページに遷移
     await page.goto("https://hr.type.jp/#/applicants", { waitUntil: "domcontentloaded" });
     await new Promise(res => setTimeout(res, 2000));
 
-    //console.log(`🔍 応募者名「${name}」を探索中...`);
+    //応募者名で探索
     const applicantLink = await page.evaluate((targetName) => {
       const normalize = str => str.replace(/\s+/g, "").trim(); // 空白除去
       const rows = Array.from(document.querySelectorAll("tr"));
@@ -37,7 +37,7 @@ async function runScraper(rawMessage) {
     if (!applicantLink) throw new Error("応募者詳細ページが見つかりません");
 
     const detailUrl = `https://hr.type.jp${applicantLink}`;
-    //console.log("🖱️ 応募者詳細ページへ遷移:", detailUrl);
+    //応募者詳細ページへ遷移
     await page.goto(detailUrl, { waitUntil: "domcontentloaded" });
     await new Promise(res => setTimeout(res, 2000));
 

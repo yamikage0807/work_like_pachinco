@@ -2,11 +2,11 @@ const express = require("express");
 const cors     = require("cors");
 
 // 各スクレイパー
-const { runScraper: runTypeScraper    } = require("./scrape_type");
-const { runScraper: runMainabiScraper } = require("./scrape_mainabi");
-const { runScraper: runDodaScraper    } = require("./scrape_doda");
-const { runScraper: runENScraper      } = require("./scrape_EN");
-const { runScraper: runEngageScraper  } = require("./scrape_engage");
+const { runScraper: runTypeScraper    } = require("./type_scrape");
+const { runScraper: runMainabiScraper } = require("./mainabi_scrape");
+const { runScraper: runDodaScraper    } = require("./doda_scrape");
+const { runScraper: runENScraper      } = require("./EN_scrape");
+const { runScraper: runEngageScraper  } = require("./engage_scrape");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -54,7 +54,7 @@ app.post("/scrape_type", async (req, res) => {
   try {
     let { messages } = req.body;
 
-    // 「messages」が文字列（丸ごと stringify）の場合のみ 1 回 parse
+    // 「messages」が文字列（丸ごと全部stringify）の場合のみ 1 回 parse
     if (typeof messages === "string") {
       try {
         messages = JSON.parse(messages);
