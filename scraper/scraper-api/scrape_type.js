@@ -1,6 +1,7 @@
 const puppeteer = require("puppeteer");
 
-async function runScraper({ loginId, password, name }) {
+async function runScraper(rawMessage) {
+  const { loginId, password, name } = parseMessage(rawMessage); // parse raw message here
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
@@ -71,6 +72,31 @@ async function runScraper({ loginId, password, name }) {
   }
 }
 
+function parseMessage(rawText) {
+  // 改行や余分な文字を取り除く
+  const cleaned = rawText.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+
+  const nameLine = lines.find(l => l.includes("応募者名"));
+  const jobIdLine = lines.find(l => l.includes("応募求人："));
+  const loginLine = lines.find(l => l.includes("メールアドレス"));
+  const passwordLine = lines.find(l => l.includes("パスワード"));
+
+  const extractValue = (line, sep = "：") => {
+    return line ? line.split(sep).pop().replace("様", "").trim() : null;
+  };
+
+  const parsed = {
+    name: extractValue(nameLine),
+    jobId: extractValue(jobIdLine),
+    loginId: extractValue(loginLine, ":"),
+    password: extractValue(passwordLine, ":"),
+  };
+
+  console.log("🧩 parse_message 出力:", parsed);
+  return parsed;
+}
+
 if (require.main === module) {
   const input = process.argv[2];
 
@@ -92,6 +118,4 @@ if (require.main === module) {
   }
 }
 
-
-
-module.exports = { runScraper };
+module.exports = { runScraper, parseMessage };

@@ -74,7 +74,7 @@
           await playSound(); // AudioContextを使用して通知音を再生
           const firstMessage = typeof data[0] === "string" ? data[0] : JSON.stringify(data[0]);
   
-          const apiRes = await fetch("http://localhost:3000/scrape", {
+          const apiRes = await fetch("http://localhost:3000/scrape_type", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"

@@ -1,83 +1,113 @@
 const express = require("express");
-const cors = require("cors");
-const { runScraper } = require("./scrape");
-const app = express();
+const cors     = require("cors");
 
+// 各スクレイパー
+const { runScraper: runTypeScraper    } = require("./scrape_type");
+const { runScraper: runMainabiScraper } = require("./scrape_mainabi");
+const { runScraper: runDodaScraper    } = require("./scrape_doda");
+const { runScraper: runENScraper      } = require("./scrape_EN");
+const { runScraper: runEngageScraper  } = require("./scrape_engage");
+
+const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// JSONボディの解析を有効化
+// ---------- middleware ----------
 app.use(express.json());
+app.use(cors({ origin: "*", credentials: true }));
 
-// CORSミドルウェアを追加
-app.use(cors({
-  origin: "*", // セキュリティを強化したい場合は特定のオリジンに制限する
-  credentials: true
-}));
+// ---------- ユーティリティ ----------
 
-// メッセージを解析する関数
-function parseMessage(rawText) {
-  // 改行や余分な文字を取り除く
-  const cleaned = rawText.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+/**
+ * ネスト崩し + 空白/BOM 除去 + 小文字化 + 先頭語抽出
+ * - messages[i] が JSON 文字列化されたオブジェクトだった場合は 1 段だけほどく
+ * - 返り値: { head: "type" | "マイナビ" | …, body: 元の本文 }
+ */
+function normalize(raw) {
+  let txt = raw;
 
-  const nameLine = lines.find(l => l.includes("応募者名"));
-  const jobIdLine = lines.find(l => l.includes("応募求人："));
-  const loginLine = lines.find(l => l.includes("メールアドレス"));
-  const passwordLine = lines.find(l => l.includes("パスワード"));
+  // (1) もし JSON 文字列なら parse → 最初の messages[0] を取り出す
+  if (typeof txt === "string" && txt.trim().startsWith("{")) {
+    try {
+      const obj = JSON.parse(txt);
+      if (Array.isArray(obj.messages) && typeof obj.messages[0] === "string") {
+        txt = obj.messages[0];
+      }
+    } catch (_) { /* ignore */ }
+  }
 
-  const extractValue = (line, sep = "：") => {
-    return line ? line.split(sep).pop().replace("様", "").trim() : null;
-  };
+  // (2) 文字列でなければ空文字に落とす
+  if (typeof txt !== "string") txt = "";
 
-  const parsed = {
-    name: extractValue(nameLine),
-    jobId: extractValue(jobIdLine),
-    loginId: extractValue(loginLine, ":"),
-    password: extractValue(passwordLine, ":"),
-  };
+  // (3) BOM・全角/半角空白を除去
+  txt = txt.replace(/^\uFEFF/, "").replace(/^[\s\u3000]+/, "");
 
-  console.log("🧩 parse_message 出力:", parsed);
-  return parsed;
+  // (4) 先頭語（空白・かっこ手前まで）
+  const head = txt
+    .toLowerCase()
+    .split(/[\s「『（(【]/)[0];
+
+  return { head, body: txt };
 }
 
-app.post("/scrape", async (req, res) => {
+// ---------- ルーティング ----------
+app.post("/scrape_type", async (req, res) => {
   try {
-    const { messages } = req.body;
-    
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ 
-        status: "error", 
-        message: "リクエストには「messages」配列が必要です" 
-      });
+    let { messages } = req.body;
+
+    // 「messages」が文字列（丸ごと stringify）の場合のみ 1 回 parse
+    if (typeof messages === "string") {
+      try {
+        messages = JSON.parse(messages);
+      } catch {
+        return res.status(400).json({ status:"error", message:"messages が不正な JSON 文字列です" });
+      }
+    }
+
+    if (!Array.isArray(messages)) {
+      return res.status(400).json({ status:"error", message:"messages 配列が必要です" });
     }
 
     const results = [];
 
-    // FastAPIバージョンと同様に複数メッセージを処理
     for (let i = 0; i < messages.length; i++) {
+      const { head, body } = normalize(messages[i]);
+      console.log(`[#${i}]`, head, "…");
+
       try {
-        const parsed = parseMessage(messages[i]);
-        const result = await runScraper(parsed);
-        results.push(result);
-      } catch (error) {
-        results.push({
-          status: "error",
-          index: i,
-          message: error.message || String(error)
-        });
+        switch (true) {
+          case head.startsWith("type"):
+            results.push(await runTypeScraper(body));    break;
+
+          case head.startsWith("マイナビ"):
+            results.push(await runMainabiScraper(body)); break;
+
+          case head.startsWith("doda"):
+            results.push(await runDodaScraper(body));    break;
+
+          case head.startsWith("en転職"):
+          case head.startsWith("en"):                    // en/EN どちらでも
+            results.push(await runENScraper(body));      break;
+
+          case head.startsWith("エンゲージ"):
+            results.push(await runEngageScraper(body));  break;
+
+          default:
+            results.push({ status:"skipped", index:i, message:"対象外のメッセージ" });
+        }
+      } catch (err) {
+        results.push({ status:"error", index:i, message: err.message || String(err) });
       }
     }
 
     res.json(results);
-  } catch (error) {
-    console.error("サーバーエラー:", error);
-    res.status(500).json({ 
-      status: "error", 
-      message: "内部サーバーエラーが発生しました" 
-    });
+
+  } catch (err) {
+    console.error("サーバーエラー:", err);
+    res.status(500).json({ status:"error", message:"内部サーバーエラーが発生しました" });
   }
 });
 
+// ---------- server ----------
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀  Server running on http://localhost:${PORT}`);
 });
