@@ -42,17 +42,36 @@ async function runScraper(rawMessage) {
     await new Promise(res => setTimeout(res, 2000));
 
     const { nameText, phoneText } = await page.evaluate(() => {
-    const nameEl = document.querySelector('[data-test="label-name"]');
-    const phoneEl = document.querySelector('[data-test="mobile"]');
-    return {
-      nameText: nameEl?.textContent.trim() || null,
-      phoneText: phoneEl?.textContent.trim() || null
-    };
-  });
+      const nameEl = document.querySelector('[data-test="label-name"]');
+      const phoneEl = document.querySelector('[data-test="mobile"]');
+      return {
+        nameText: nameEl?.textContent.trim() || null,
+        phoneText: phoneEl?.textContent.trim() || null
+      };
+    });
 
+    // スクリーンショット（職務経歴書部分から下）
+    const resumeSectionHandle = await page.evaluateHandle(() => {
+      const elements = Array.from(document.querySelectorAll('div.boss-resume-sheet-title'));
+      return elements.find(el => el.textContent.trim() === '職務経歴書') || null;
+    });
 
-    // スクリーンショット（Base64で即返却）
-    const buffer = await page.screenshot({ fullPage: true });
+    if (!resumeSectionHandle) throw new Error("職務経歴書セクションが見つかりません");
+
+    const boundingBox = await resumeSectionHandle.boundingBox();
+    if (!boundingBox) throw new Error("職務経歴書セクションの位置を取得できません");
+
+    const pageHeight = await page.evaluate(() => document.body.scrollHeight);
+
+    const buffer = await page.screenshot({
+      clip: {
+        x: 0,
+        y: boundingBox.y + boundingBox.height - 50, // Start below the section
+        width: page.viewport().width,
+        height: pageHeight - (boundingBox.y + boundingBox.height) // Capture until the end of the page
+      }
+    });
+
     const base64 = buffer.toString("base64");
 
     return {
@@ -62,7 +81,6 @@ async function runScraper(rawMessage) {
       name: nameText,
       phone: phoneText
     };
-    
 
   } catch (err) {
     console.error("❌ エラー:", err.message);
