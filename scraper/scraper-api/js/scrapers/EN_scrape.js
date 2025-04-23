@@ -9,14 +9,11 @@ async function runScraper(rawMessage) {
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
-//   TODO:  URL調整
   try {
-    // エンゲージのログインページにアクセス (直接応募URLに行く前にログインが必要な場合を想定)
-    // 必要に応じてログインページのURLに変更してください
-    await page.goto("https://en-gage.net/company/login/", { waitUntil: "domcontentloaded" });
+    await page.goto("https://en-gage.net/company/manage/?apply_id=MTY5NTk4MDA=", { waitUntil: "domcontentloaded" });
 
     // ログインIDとパスワードを入力 (セレクタは実際のサイトに合わせてください)
-    await page.type('input[name="login_id"]', loginId); // 仮のセレクタ
+    await page.type('input[name="loginId"]', loginId); // 仮のセレクタ
     await page.type('input[name="password"]', password); // 仮のセレクタ
     await page.click('button[type="submit"]'); // 仮のセレクタ
 
@@ -32,8 +29,8 @@ async function runScraper(rawMessage) {
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
       // 例: 応募者名と電話番号を取得するセレクタ (実際のサイトに合わせてください)
-      const nameEl = document.querySelector(".applicant-name"); // 仮のセレクタ
-      const phoneEl = document.querySelector(".applicant-phone"); // 仮のセレクタ
+      const nameEl = document.querySelector('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]/text()'); // 仮のセレクタ
+      const phoneEl = document.querySelector('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[2]/dd[1]/text()'); // 仮のセレクタ
       return {
         nameText: nameEl?.textContent.trim() || null,
         phoneText: phoneEl?.textContent.trim() || null

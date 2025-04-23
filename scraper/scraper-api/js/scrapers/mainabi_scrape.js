@@ -9,16 +9,12 @@ async function runScraper(rawMessage) {
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
-// TODO:  URL調整
   try {
-    // マイナビ転職の企業ログインページにアクセス (URLは要確認)
-    // 例: await page.goto("https://tenshoku.mynavi.jp/company/login/", { waitUntil: "domcontentloaded" });
-    // 正確なログインページのURLに置き換えてください
     await page.goto("https://tenshoku.mynavi.jp/client/", { waitUntil: "domcontentloaded" }); // 仮のURL
 
     // ログインIDとパスワードを入力 (セレクタは実際のサイトに合わせてください)
-    await page.type('#loginId', loginId); // 仮のセレクタ (ID用)
-    await page.type('#password', password); // 仮のセレクタ (パスワード用)
+    await page.type('input[name="ap_login_id"]', loginId); // 仮のセレクタ (ID用)
+    await page.type('input[name="ap_password"]', password); // 仮のセレクタ (パスワード用)
     await page.click('button[type="submit"]'); // 仮のセレクタ (ログインボタン用)
 
     // ログイン後の遷移待機 (必要に応じて調整)
@@ -36,9 +32,9 @@ async function runScraper(rawMessage) {
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
       // 例: 応募者名と電話番号を取得するセレクタ (実際のサイトに合わせてください)
-      const nameEl = document.querySelector(".applicant-profile-name"); // 仮のセレクタ
+      const nameEl = document.querySelector("/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]/text()"); // 仮のセレクタ
       // 電話番号のセレクタも同様に見つける必要があります
-      const phoneEl = document.querySelector(".applicant-profile-phone"); // 仮のセレクタ
+      const phoneEl = document.querySelector("/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]/text()"); // 仮のセレクタ
       return {
         nameText: nameEl?.textContent.trim() || null,
         phoneText: phoneEl?.textContent.trim() || null // 電話番号がなければ null
