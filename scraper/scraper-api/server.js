@@ -22,32 +22,38 @@ app.use(cors({ origin: "*", credentials: true }));
  * - messages[i] が JSON 文字列化されたオブジェクトだった場合は 1 段だけほどく
  * - 返り値: { head: "type" | "マイナビ" | …, body: 元の本文 }
  */
+
 function normalize(raw) {
   let txt = raw;
 
-  // (1) もし JSON 文字列なら parse → 最初の messages[0] を取り出す
-  if (typeof txt === "string" && txt.trim().startsWith("{")) {
+  // JSON形式かどうか安全に確認してからパース
+  if (typeof txt === "string") {
     try {
-      const obj = JSON.parse(txt);
-      if (Array.isArray(obj.messages) && typeof obj.messages[0] === "string") {
-        txt = obj.messages[0];
+      const parsed = JSON.parse(txt);
+      if (typeof parsed === "object" && parsed.message) {
+        txt = parsed.message;
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) {
+      // パース失敗＝普通の文字列 → そのままでOK
+    }
   }
 
-  // (2) 文字列でなければ空文字に落とす
+  // テキストでなければ空文字に
   if (typeof txt !== "string") txt = "";
 
-  // (3) BOM・全角/半角空白を除去
-  txt = txt.replace(/^\uFEFF/, "").replace(/^[\s\u3000]+/, "");
+  // BOM・全角/半角空白除去
+  txt = txt.replace(/^\uFEFF/, "").trim();
 
-  // (4) 先頭語（空白・かっこ手前まで）
-  const head = txt
-    .toLowerCase()
-    .split(/[\s「『（(【]/)[0];
+  // 「より」までの語をheadとして抽出
+  const match = txt.match(/^(.+?)より/);
+  const head = match ? match[1].toLowerCase().trim() : "";
 
+  console.log("🔍 normalized head:", head);
   return { head, body: txt };
 }
+
+
+  
 
 // ---------- ルーティング ----------
 app.post("/scrape_type", async (req, res) => {
