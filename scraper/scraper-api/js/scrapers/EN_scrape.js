@@ -10,18 +10,34 @@ async function runScraper(rawMessage) {
   const page = await browser.newPage();
 
   try {
-    await page.goto("https://en-gage.net/company/manage/?apply_id=MTY5NTk4MDA=", { waitUntil: "domcontentloaded" });
+    await page.goto("https://employment.en-japan.com/company/select_service/?PK=2A3C3A", { waitUntil: "domcontentloaded" });
 
     // ログインIDとパスワードを入力 (セレクタは実際のサイトに合わせてください)
-    await page.type('input[name="loginId"]', loginId); // 仮のセレクタ
+    await page.type('input[name="loginID"]', loginId); // 仮のセレクタ
     await page.type('input[name="password"]', password); // 仮のセレクタ
     await page.click('button[type="submit"]'); // 仮のセレクタ
 
     // ログイン後の遷移待機 (必要に応じて調整)
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    console.log("✅ エンゲージログイン試行完了");
 
-    // 応募内容の閲覧用URLに遷移
-    await page.goto(applyUrl, { waitUntil: "domcontentloaded" });
+    // ログイン後の追加操作
+    await page.click('/html/body/div[2]/section[1]/form/div[2]/span/input');
+    console.log("✅ 最初のボタンをクリック");
+    
+    await new Promise(res => setTimeout(res, 1000)); // 操作間の待機
+    
+    await page.click('/html/body/div[1]/div/div[2]/label');
+    console.log("✅ 2番目のボタンをクリック");
+    
+    await new Promise(res => setTimeout(res, 1000)); // 操作間の待機
+    
+    await page.click('/html/body/div[2]/div[3]/div/div[1]/div[2]/div[2]/table/tbody/tr/td[4]/a');
+    console.log("✅ 応募者情報リンクをクリック");
+
+    // 応募者情報ページへの遷移待機
+    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    console.log("✅ 応募者情報ページに遷移");
 
     // 描画待機 (SPAなどの場合、適切な待機処理を追加)
     await new Promise(res => setTimeout(res, 3000)); // 3秒待機 (調整が必要)
@@ -29,7 +45,8 @@ async function runScraper(rawMessage) {
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
       // 例: 応募者名と電話番号を取得するセレクタ (実際のサイトに合わせてください)
-      const nameEl = document.querySelector('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]/text()'); // 仮のセレクタ
+      const nameEl = document.querySelector('/html/body/div[6]/div/div[2]/div[1]/div[2]/em/ruby'); // 仮のセレクタ
+      // TODO: 電話番号のセレクタをどうするか？
       const phoneEl = document.querySelector('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[2]/dd[1]/text()'); // 仮のセレクタ
       return {
         nameText: nameEl?.textContent.trim() || null,
@@ -41,6 +58,7 @@ async function runScraper(rawMessage) {
        console.warn("⚠️ 応募者名が取得できませんでした。セレクタを確認してください。");
        // スクリーンショットは撮る
     }
+    console.log("👤 取得した応募者情報:", applicantInfo);
 
     // スクリーンショット（Base64で返却）
     const buffer = await page.screenshot({ fullPage: true });
