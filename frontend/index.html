@@ -61,7 +61,7 @@
 
     async function checkGAS() {
       try {
-        const res = await fetch("https://script.google.com/macros/s/AKfycbwW6GwD3eRJawe0Xe-loNo_sfCvV_1ot3D-DxfPdjcl1P5JYQMsdsvXpL13oIcLp3E/exec");
+        const res = await fetch("https://script.google.com/macros/s/AKfycby-09auMaVWYeopKueCeuT8VeigvHuofPN4xaK8mRUWmwU568nxhLP4j3T7Kzii06s/exec");
         const { flag, data } = await res.json();
   
         if (flag > 0 && data.length > 0) {
