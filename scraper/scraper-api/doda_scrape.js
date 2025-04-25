@@ -3,7 +3,7 @@ const puppeteer = require("puppeteer");
 async function runScraper(rawMessage) {
     console.log("run_scraper/duda 開始");
     const { loginUrl, loginId, password} = parseMessage(rawMessage); // parse raw message here
-    const browser = await puppeteer.launch({ headless: "false" });
+    const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
     console.log("🧩 run_scraper 出力:", { loginUrl, loginId, password });
@@ -11,10 +11,14 @@ async function runScraper(rawMessage) {
     await page.goto(loginUrl, { waitUntil: "domcontentloaded" });
 
     await page.type("#MailAddress", loginId);
-    await page.type("#Passwd", password);
+    await page.type("#PassWd", password);
     await page.click('#LoginBtn');
 
-    await new Promise(res => setTimeout(res, 2000));
+    console.log("ログイン完了、SPAの描画待機");
+
+    //await new Promise(res => setTimeout(res, 2000));
+    await page.waitForSelector('#topicJobHistory', { timeout: 60000 });
+    console.log("職務経歴セクションが描画されました。");
 
     const { nameText, phoneText } = await page.evaluate(() => {
         const nameEl = document.querySelector('[data-test="label-name"]');
@@ -26,10 +30,11 @@ async function runScraper(rawMessage) {
     });
 
     const resumeSectionHandle = await page.evaluateHandle(() => {
-        const elements = Array.from(document.querySelectorAll('div.boss-resume-sheet-title'));
-        return elements.find(el => el.textContent.trim() === '職務経歴書') || null;
-      });
-  
+      const element = document.querySelector('#topicJobHistory');
+      return element?.textContent.trim() === '職務経歴' ? element : null;
+    });
+
+
       if (!resumeSectionHandle) throw new Error("職務経歴書セクションが見つかりません");
   
       const boundingBox = await resumeSectionHandle.boundingBox();
