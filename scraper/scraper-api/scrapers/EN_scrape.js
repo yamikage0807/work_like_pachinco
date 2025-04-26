@@ -90,7 +90,6 @@ async function runScraper(rawMessage) {
     await resumePage.setViewport({ width: 1000, height: 1200 }); // 👈 画面サイズを広げる
 
     // subtitle（職務経歴）の要素を取得
-   // subtitle（職務経歴）の要素を取得
     const subtitleHandle = await resumePage.$('.contents .subTitle');
     if (!subtitleHandle) throw new Error("❌ 『職務経歴』の見出しが見つかりません");
 
