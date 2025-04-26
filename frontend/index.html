@@ -7,7 +7,7 @@
   <style>
     img { max-width: 100%; height: auto; border: 1px solid #ccc; }
   </style>
-  <audio id="notification-sound" src="./audio/びっくりチキンの鳴き声着信音.mp3" preload="auto"></audio>
+  <audio id="notification-sound" src="./audio/barcode.mp3" preload="auto"></audio>
 </head>
 <body>
   <div class="container">
@@ -17,9 +17,7 @@
         <button id="init-audio" class="init-audio">
           音声を有効化
         </button>
-        <button id="stop-audio" class="stop-audio">
-          音声を停止
-        </button>
+        <!-- Removed the "音声を停止" button -->
       </div>
       <div class="info" id="name">氏名: 読み込み中…</div>
       <div class="info" id="phone">電話番号: 読み込み中…</div>
@@ -29,6 +27,7 @@
   
   <script>
     let audioContext;
+    let soundPlayed = false; // Track if the sound has already been played
 
     document.getElementById("init-audio").addEventListener("click", () => {
       if (!audioContext) {
@@ -38,18 +37,13 @@
       console.log("AudioContext initialized.");
     });
 
-    document.getElementById("stop-audio").addEventListener("click", () => {
-      const sound = document.getElementById("notification-sound");
-      if (!sound.paused) {
-        sound.pause();
-        sound.currentTime = 0; // Reset playback position
-        console.log("Sound stopped.");
-      }
-    });
-
     async function playSound() {
       if (!audioContext) {
         console.warn("AudioContextが初期化されていません");
+        return;
+      }
+      if (soundPlayed) {
+        console.log("Sound has already been played. Skipping.");
         return;
       }
       try {
@@ -58,6 +52,7 @@
           sound.currentTime = 0; // Reset playback position
         }
         await sound.play();
+        soundPlayed = true; // Mark sound as played
         console.log("Sound played successfully.");
       } catch (error) {
         console.error("音声再生中にエラーが発生しました:", error);
@@ -66,12 +61,12 @@
 
     async function checkGAS() {
       try {
-        const res = await fetch("https://script.google.com/macros/s/AKfycbwW6GwD3eRJawe0Xe-loNo_sfCvV_1ot3D-DxfPdjcl1P5JYQMsdsvXpL13oIcLp3E/exec");
+        const res = await fetch("https://script.google.com/macros/s/AKfycby-09auMaVWYeopKueCeuT8VeigvHuofPN4xaK8mRUWmwU568nxhLP4j3T7Kzii06s/exec");
         const { flag, data } = await res.json();
   
         if (flag > 0 && data.length > 0) {
           console.log("New data received, playing sound...");
-          await playSound(); // AudioContextを使用して通知音を再生
+          await playSound(); // Play sound only once
           const firstMessage = typeof data[0] === "string" ? data[0] : JSON.stringify(data[0]);
 
           const startTime = performance.now(); // Start timing
