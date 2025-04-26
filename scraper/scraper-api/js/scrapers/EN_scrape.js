@@ -1,142 +1,155 @@
 const puppeteer = require("puppeteer");
 
 async function runScraper(rawMessage) {
-  const { loginId, password, applyUrl } = parseMessage(rawMessage);
-  if (!loginId || !password || !applyUrl) {
-    throw new Error("メッセージからログイン情報または応募URLを抽出できませんでした。");
-  }
-
+  console.log("run_scraper/EN 開始");
+  const { loginUrl, loginId, password, userId } = parseMessage(rawMessage);
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
-  try {
-    await page.goto("https://employment.en-japan.com/company/select_service/?PK=2A3C3A", { waitUntil: "domcontentloaded" });
+  // ログインページへ遷移
+  // ログイン後セッション確立までは普通に操作
+  await page.goto("https://employment.en-japan.com/company_login/auth/login/", { waitUntil: "domcontentloaded" });
+    console.log("ログイン画面に遷移");
 
-    // ログインIDとパスワードを入力 (セレクタは実際のサイトに合わせてください)
-    await page.type('input[name="loginID"]', loginId); // 仮のセレクタ
-    await page.type('input[name="password"]', password); // 仮のセレクタ
-    await page.click('button[type="submit"]'); // 仮のセレクタ
+    await page.type('[name="loginID"]', loginId);
+    await page.type('[name="password"]', password);
+    await page.click('[value="ログイン"]');
+    console.log("ログイン情報入力してクリック");
 
-    // ログイン後の遷移待機 (必要に応じて調整)
+    // ❌ NG: await page.waitForNavigation();
+    // ⭕ OK: ログイン後の特定要素（たとえば会社名が表示されるヘッダーなど）を待つ
+    await page.waitForSelector('[alt="エン転職"]');  // ← ここ適当にトップページにあるものにする
+    console.log("✅ ログイン成功（セッション同期開始）");
+
+    // 少し待ってセッションを安定させる
+    await new Promise(res => setTimeout(res, 1000));
+
+    // ログイン後ページ確認
+    const currentUrl = page.url();
+    console.log("🧭 ログイン後のURL:", currentUrl);
+
+    // サービス選択画面にいる場合
+    if (currentUrl.includes("/select_service/")) {
+        console.log("🛠 サービス選択画面を検出。左側のサービスを自動選択します");
+    
+        // ✅ 左側の「サイトTOPへ」ボタンをクリック（input[type="submit"]）
+        const leftButton = await page.$('form input[type="submit"][value="サイトTOPへ"]');
+        if (leftButton) {
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+            leftButton.click()
+        ]);
+        console.log("✅ サイトTOPに遷移しました");
+        } else {
+        throw new Error("❌ サービス選択ボタンが見つかりませんでした");
+        }
+    }
+    
+    // アドレスバー直打ち再現
+    await page.evaluate(url => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_self';
+    document.body.appendChild(a);
+    a.click();
+    }, loginUrl);
+
+    console.log("アドレスバー直打ち再現");
+
+    // そしてナビゲーション待ち
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-    console.log("✅ エンゲージログイン試行完了");
+    console.log("✅ 応募者詳細ページに遷移成功");
 
-    // ログイン後の追加操作
-    await page.click('/html/body/div[2]/section[1]/form/div[2]/span/input');
-    console.log("✅ 最初のボタンをクリック");
-    
-    await new Promise(res => setTimeout(res, 1000)); // 操作間の待機
-    
-    await page.click('/html/body/div[1]/div/div[2]/label');
-    console.log("✅ 2番目のボタンをクリック");
-    
-    await new Promise(res => setTimeout(res, 1000)); // 操作間の待機
-    
-    await page.click('/html/body/div[2]/div[3]/div/div[1]/div[2]/div[2]/table/tbody/tr/td[4]/a');
-    console.log("✅ 応募者情報リンクをクリック");
+    // ページを開いた直後、または職務経歴スクショ前に挿入
+    //await resumePage.setViewport({ width: 1400, height: 1200 });
+    //console.log("🖥 ビューポートを拡大しました");
 
-    // 応募者情報ページへの遷移待機
-    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-    console.log("✅ 応募者情報ページに遷移");
 
-    // 描画待機 (SPAなどの場合、適切な待機処理を追加)
-    await new Promise(res => setTimeout(res, 3000)); // 3秒待機 (調整が必要)
+    // 応募者詳細画面で履歴書リンクを取得
+    const resumeUrl = await page.$eval('td.name a', el => el.href);
+    console.log("📄 履歴書URL:", resumeUrl);
 
-    // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
-    const applicantInfo = await page.evaluate(() => {
-      // 例: 応募者名と電話番号を取得するセレクタ (実際のサイトに合わせてください)
-      const nameEl = document.querySelector('/html/body/div[6]/div/div[2]/div[1]/div[2]/em/ruby'); // 仮のセレクタ
-      // TODO: 電話番号のセレクタをどうするか？
-      const phoneEl = document.querySelector('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[2]/dd[1]/text()'); // 仮のセレクタ
-      return {
-        nameText: nameEl?.textContent.trim() || null,
-        phoneText: phoneEl?.textContent.trim() || null
-      };
+    // 新しいタブで履歴書ページを開く
+    const resumePage = await browser.newPage();
+    await resumePage.goto(resumeUrl, { waitUntil: "domcontentloaded" });
+    console.log("✅ 履歴書ページを新しいタブで開きました");
+
+    // 氏名行からテキストを取得
+    const nameRaw = await resumePage.$eval('.profileArea tr:nth-child(1) .dataSet', el => el.textContent.trim());
+    const name = nameRaw.split("／")[0].trim(); // 氏名だけにする
+
+    // 電話・メールの行から両方取得
+    const contactRaw = await resumePage.$eval('.profileArea tr:nth-child(3) .dataSet', el => el.textContent);
+    const phoneMatch = contactRaw.match(/0\d{1,4}-\d{1,4}-\d{3,4}/);
+
+    const phone = phoneMatch ? phoneMatch[0] : null;
+
+    console.log("👤 氏名:", name);
+    console.log("📞 電話番号:", phone);
+
+    await resumePage.setViewport({ width: 1000, height: 1200 }); // 👈 画面サイズを広げる
+
+    // subtitle（職務経歴）の要素を取得
+    const subtitleHandle = await resumePage.$('.contents .subTitle');
+    if (!subtitleHandle) throw new Error("❌ 『職務経歴』の見出しが見つかりません");
+
+    await new Promise(res => setTimeout(res, 300));
+
+    const boundingBox = await subtitleHandle.boundingBox();
+    if (!boundingBox) throw new Error("❌ boundingBoxが取得できません");
+
+    const viewport = resumePage.viewport();
+
+    // ページ全体の高さを取得
+    const fullHeight = await resumePage.evaluate(() => document.body.scrollHeight);
+
+    // スクリーンショットのclip範囲（職務経歴の下から最後まで）
+    const buffer = await resumePage.screenshot({
+    clip: {
+        x: 0,
+        y: boundingBox.y + boundingBox.height,
+        width: viewport.width,
+        height: fullHeight - (boundingBox.y + boundingBox.height)
+    }
     });
 
-    if (!applicantInfo.nameText) {
-       console.warn("⚠️ 応募者名が取得できませんでした。セレクタを確認してください。");
-       // スクリーンショットは撮る
-    }
-    console.log("👤 取得した応募者情報:", applicantInfo);
-
-    // スクリーンショット（Base64で返却）
-    const buffer = await page.screenshot({ fullPage: true });
     const base64 = buffer.toString("base64");
+    console.log("📸 職務経歴以下をスクリーンショットに成功しました！");
 
     return {
-      status: "success",
-      screenshot: base64,
-      mimeType: "image/png",
-      name: applicantInfo.nameText,
-      phone: applicantInfo.phoneText // 電話番号がない場合は null
+        status: "success",
+        screenshot: base64,
+        mimeType: "image/png",
+        name: name,
+        phone: phone
     };
-
-  } catch (err) {
-    console.error("❌ エンゲージスクレイピングエラー:", err.message);
-    // エラー時にもスクリーンショットを試みる (デバッグ用)
-    try {
-      const buffer = await page.screenshot({ fullPage: true });
-      const base64 = buffer.toString("base64");
-       process.stdout.write(JSON.stringify({
-         status: "error",
-         message: err.message,
-         screenshot: base64, // エラー時のスクリーンショット
-         mimeType: "image/png"
-       }));
-    } catch (screenShotError) {
-       console.error("❌ エラー時のスクリーンショット取得失敗:", screenShotError);
-       process.stdout.write(JSON.stringify({ status: "error", message: err.message }));
-    }
-    process.exit(0); // エラーでもFastAPI側で処理を続けるため正常終了扱い
-
-  } finally {
-    await browser.close();
-  }
+  
 }
 
-function parseMessage(rawText) {
-  const cleaned = rawText.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+function parseMessage(rawMessage) {
+  const cleaned = rawMessage.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
 
-  let loginId = null;
-  let password = null;
-  let applyUrl = null;
+  const loginUrlMatch = cleaned.match(/https:\/\/employment\.en-japan\.com\/company\/appcontrol\/applicant_desc\/\?ApplyID=\d+/);
+  const loginUrl = loginUrlMatch ? loginUrlMatch[0] : null;
 
-  for (const line of lines) {
-    if (line.startsWith("メールアドレス:")) {
-      loginId = line.split(":")[1]?.trim();
-    } else if (line.startsWith("パスワード:")) {
-      password = line.split(":")[1]?.trim();
-    } else if (line.startsWith("https://en-gage.net/company/manage/?apply_id=")) {
-      applyUrl = line;
-    }
-  }
+  const loginIdMatch = cleaned.match(/メールアドレス: ?([^\s]+)/);
+  const loginId = loginIdMatch ? loginIdMatch[1] : null;
 
-  // 面談者情報などは現時点では利用しない
-  console.log("🧩 エンゲージ parse_message 出力:", { loginId, password, applyUrl });
-  return { loginId, password, applyUrl };
-}
+  const passwordMatch = cleaned.match(/パスワード: ?([^\s]+)/);
+  const password = passwordMatch ? passwordMatch[1] : null;
 
-if (require.main === module) {
-  // FastAPI連携時の標準入力引数からメッセージを受け取る
-  const input = process.argv[2];
+  const userIdMatch = cleaned.match(/【 会員ID 】 ?(\d+)/);
+  const userId = userIdMatch ? userIdMatch[1] : null;
 
-  try {
-    const rawMessage = JSON.parse(input);
-    runScraper(rawMessage).then(result => {
-      // 🔵 FastAPI 側で受け取るデータ（stdout）
-      process.stdout.write(JSON.stringify(result));
-    }).catch(err => {
-      // 🔴 エラー処理は runScraper 内で行い stdout に出力される
-      process.stdout.write(JSON.stringify({ status: "error", message: err.message }));
-      process.exit(0); // エラーでもFastAPI側で処理を続けるため正常終了扱い
-    });
-  } catch (err) {
-    // JSONパース失敗時
-    process.stdout.write(JSON.stringify({ status: "error", message: err.message }));
-    process.exit(0);
-  }
+  const parsed = {
+    loginUrl,
+    loginId,
+    password,
+    userId
+  };
+
+  console.log("🧩 parse_message 出力:", parsed);
+  return parsed;
 }
 
 module.exports = { runScraper, parseMessage };
