@@ -2,11 +2,11 @@ const express = require("express");
 const cors     = require("cors");
 
 // 各スクレイパー
-const { runScraper: runTypeScraper    } = require("./type_scrape");
-const { runScraper: runMainabiScraper } = require("./mainabi_scrape");
-const { runScraper: runDodaScraper    } = require("./doda_scrape");
-const { runScraper: runENScraper      } = require("./EN_scrape");
-const { runScraper: runEngageScraper  } = require("./engage_scrape");
+const { runScraper: runTypeScraper    } = require("./scrapers/type_scrape");
+const { runScraper: runMainabiScraper } = require("./scrapers/mainabi_scrape");
+const { runScraper: runDodaScraper    } = require("./scrapers/doda_scrape");
+const { runScraper: runENScraper      } = require("./scrapers/EN_scrape");
+const { runScraper: runEngageScraper  } = require("./scrapers/engage_scrape");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
