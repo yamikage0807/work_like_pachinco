@@ -13,9 +13,19 @@ async function runScraper(rawMessage) {
     await page.goto("https://employment.en-japan.com/company/select_service/?PK=2A3C3A", { waitUntil: "domcontentloaded" });
 
     // ログインIDとパスワードを入力 (セレクタは実際のサイトに合わせてください)
-    await page.type('input[name="loginID"]', loginId); // 仮のセレクタ
-    await page.type('input[name="password"]', password); // 仮のセレクタ
-    await page.click('button[type="submit"]'); // 仮のセレクタ
+    await page.waitForSelector('input[name="loginID"]', { timeout: 10000 });
+    await page.type('input[name="loginID"]', loginId);
+    
+    await page.waitForSelector('input[name="password"]', { timeout: 10000 });
+    await page.type('input[name="password"]', password);
+    console.log("ログイン情報入力");
+    
+    // ボタンクリックじゃなくて form submit する
+    await page.evaluate(() => {
+      document.querySelector('form').submit();
+    });
+    console.log("✅ エンゲージログイン試行完了");
+
 
     // ログイン後の遷移待機 (必要に応じて調整)
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
