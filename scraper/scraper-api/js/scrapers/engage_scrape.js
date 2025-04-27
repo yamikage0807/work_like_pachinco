@@ -96,27 +96,34 @@ async function runScraper(rawMessage) {
 }
 
 function parseMessage(rawText) {
-  const cleaned = rawText.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+  const cleaned = rawText.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\s+/g, ' ').trim(); // すべてスペース区切りにする
 
   let loginId = null;
   let password = null;
   let applyUrl = null;
 
-  for (const line of lines) {
-    if (line.startsWith("メールアドレス:")) {
-      loginId = line.split(":")[1]?.trim();
-    } else if (line.startsWith("パスワード:")) {
-      password = line.split(":")[1]?.trim();
-    } else if (line.startsWith("https://en-gage.net/company/manage/?apply_id=")) {
-      applyUrl = line;
-    }
+  // 応募詳細URL
+  const urlMatch = cleaned.match(/https:\/\/(en-gage\.net\/company\/manage\/\?apply_id=|tenshoku\.mynavi\.jp\/d\/c\.cfm\/|assist\.doda\.jp\/|employment\.en-japan\.com\/company\/appcontrol\/applicant_desc\/\?ApplyID=)[a-zA-Z0-9=\/%]+/);
+  if (urlMatch) {
+    applyUrl = urlMatch[0].trim();
   }
 
-  // 面談者情報などは現時点では利用しない
-  console.log("🧩 エンゲージ parse_message 出力:", { loginId, password, applyUrl });
+  // メールアドレス
+  const loginIdMatch = cleaned.match(/メールアドレス:\s*([^\s]+)/);
+  if (loginIdMatch) {
+    loginId = loginIdMatch[1].trim();
+  }
+
+  // パスワード
+  const passwordMatch = cleaned.match(/パスワード:\s*([^\s]+)/);
+  if (passwordMatch) {
+    password = passwordMatch[1].trim();
+  }
+
+  console.log("🧩 parse_message 出力:", { loginId, password, applyUrl });
   return { loginId, password, applyUrl };
 }
+
 
 if (require.main === module) {
   // FastAPI連携時の標準入力引数からメッセージを受け取る
