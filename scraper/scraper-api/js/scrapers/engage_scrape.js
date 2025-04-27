@@ -1,3 +1,7 @@
+//
+// TELのセレクタがどうなるかわからないので、保留します。
+//
+
 const puppeteer = require("puppeteer");
 
 async function runScraper(rawMessage) {
