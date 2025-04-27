@@ -82,26 +82,37 @@ async function runScraper(rawMessage) {
 }
 
 function parseMessage(rawMessage) {
-  const cleaned = rawMessage.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
-
-  const loginUrlLine = lines.find(l => l.startsWith("https://assist.doda.jp"));
-  const loginIdLine  = lines.find(l => l.includes("メールアドレス"));
-  const passwordLine = lines.find(l => l.includes("パスワード"));
-
-  const extractValue = (line, sep = "：") => {
-    return line ? line.split(sep).pop().replace("様", "").trim() : null;
-  };
-
-  const parsed = {
-    loginUrl: loginUrlLine?.trim(),
-    loginId:  extractValue(loginIdLine, ":"),
-    password: extractValue(passwordLine, ":"),
-  };
-
-  console.log("🧩 parse_message 出力:", parsed);
-  return parsed;
-}
+    const cleaned = rawMessage.replace(/\\n/g, '').replace(/\\"/g, '"').trim();
+  
+    const extractBetween = (text, startKey, endKey) => {
+      const start = text.indexOf(startKey);
+      if (start === -1) return null;
+      const afterStart = start + startKey.length;
+      const end = text.indexOf(endKey, afterStart);
+      if (end === -1) {
+        return text.slice(afterStart).trim();
+      }
+      return text.slice(afterStart, end).trim();
+    };
+  
+    const loginUrl = (() => {
+      const urlMatch = cleaned.match(/https:\/\/assist\.doda\.jp\/[^\s]+/);
+      return urlMatch ? urlMatch[0].trim() : null;
+    })();
+  
+    const loginId = extractBetween(cleaned, "メールアドレス:", "パスワード")?.trim();
+    const password = extractBetween(cleaned, "パスワード:", "面談者")?.trim();
+  
+    const parsed = {
+      loginUrl,
+      loginId,
+      password,
+    };
+  
+    console.log("🧩 parse_message 出力:", parsed);
+    return parsed;
+  }
+  
 
 
 

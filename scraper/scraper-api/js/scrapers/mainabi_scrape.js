@@ -12,10 +12,16 @@ async function runScraper(rawMessage) {
   try {
     await page.goto("https://tenshoku.mynavi.jp/client/", { waitUntil: "domcontentloaded" }); // 仮のURL
 
-    // ログインIDとパスワードを入力 (セレクタは実際のサイトに合わせてください)
-    await page.type('input[name="ap_login_id"]', loginId); // 仮のセレクタ (ID用)
-    await page.type('input[name="ap_password"]', password); // 仮のセレクタ (パスワード用)
-    await page.click('button[type="submit"]'); // 仮のセレクタ (ログインボタン用)
+    await page.waitForSelector('input[name="ap_login_id"]', { timeout: 10000 });
+    await page.type('input[name="ap_login_id"]', loginId);
+    
+    await page.waitForSelector('input[name="ap_password"]', { timeout: 10000 });
+    await page.type('input[name="ap_password"]', password);
+    
+    // ログインボタン押す（IDを指定しているならこれ）
+    await page.click('#loginBtn');
+    
+
 
     // ログイン後の遷移待機 (必要に応じて調整)
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
@@ -84,26 +90,36 @@ async function runScraper(rawMessage) {
 }
 
 function parseMessage(rawText) {
-  const cleaned = rawText.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+  const cleaned = rawText.replace(/\\n/g, '').replace(/\\"/g, '"').trim();
 
   let loginId = null;
   let password = null;
   let applyUrl = null;
 
-  for (const line of lines) {
-    if (line.startsWith("メールアドレス:")) {
-      loginId = line.split(":")[1]?.trim();
-    } else if (line.startsWith("パスワード:")) {
-      password = line.split(":")[1]?.trim();
-    } else if (line.startsWith("https://tenshoku.mynavi.jp/d/c.cfm/")) {
-      applyUrl = line;
-    }
+  // 応募詳細URL
+  const urlMatch = cleaned.match(/https:\/\/tenshoku\.mynavi\.jp\/d\/c\.cfm\/[a-zA-Z0-9]+/);
+  if (urlMatch) {
+    applyUrl = urlMatch[0].trim();
+  }
+
+  // メールアドレスだけ抜き出し
+  const loginIdMatch = cleaned.match(/メールアドレス:\s*([^\s]+)/);
+  if (loginIdMatch) {
+    loginId = loginIdMatch[1];
+  }
+
+  // パスワードだけ抜き出し
+  const passwordMatch = cleaned.match(/パスワード:\s*([^\s]+)/);
+  if (passwordMatch) {
+    password = passwordMatch[1];
   }
 
   console.log("🧩 マイナビ parse_message 出力:", { loginId, password, applyUrl });
   return { loginId, password, applyUrl };
 }
+
+
+
 
 if (require.main === module) {
   // FastAPI連携時の標準入力引数からメッセージを受け取る
