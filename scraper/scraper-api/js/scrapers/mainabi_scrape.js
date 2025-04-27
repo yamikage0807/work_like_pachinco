@@ -37,10 +37,18 @@ async function runScraper(rawMessage) {
 
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
-      // 例: 応募者名と電話番号を取得するセレクタ (実際のサイトに合わせてください)
-      const nameEl = document.querySelector("/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]/text()"); // 仮のセレクタ
-      // 電話番号のセレクタも同様に見つける必要があります
-      const phoneEl = document.querySelector("/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]/text()"); // 仮のセレクタ
+      // XPath指定で要素を取得
+      function getByXPath(xpath) {
+        try {
+          const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+          return result.singleNodeValue;
+        } catch (err) {
+          console.error("❌ XPathエラー:", err);
+          return null;
+        }
+      }
+      const nameEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]');
+      const phoneEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[2]');
       return {
         nameText: nameEl?.textContent.trim() || null,
         phoneText: phoneEl?.textContent.trim() || null // 電話番号がなければ null
