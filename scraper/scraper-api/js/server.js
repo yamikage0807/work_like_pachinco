@@ -56,7 +56,7 @@ function normalize(raw) {
   
 
 // ---------- ルーティング ----------
-app.post("/scrape_type", async (req, res) => {
+app.post("/scrape", async (req, res) => {
   try {
     let { messages } = req.body;
 

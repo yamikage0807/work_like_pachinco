@@ -69,7 +69,7 @@
           const firstMessage = typeof data[0] === "string" ? data[0] : JSON.stringify(data[0]);
 
           const startTime = performance.now(); // Start timing
-          const apiRes = await fetch("http://localhost:3000/server", {
+          const apiRes = await fetch("http://localhost:3000/scrape", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
