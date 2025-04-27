@@ -6,30 +6,50 @@ async function runScraper(rawMessage) {
     throw new Error("メッセージからログイン情報または応募URLを抽出できませんでした。");
   }
 
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
 
   try {
-    await page.goto("https://tenshoku.mynavi.jp/client/", { waitUntil: "domcontentloaded" }); // 仮のURL
+    await page.goto("https://tenshoku.mynavi.jp/client/entrycommunication/", { waitUntil: "domcontentloaded" }); // 仮のURL
 
-    await page.waitForSelector('input[name="ap_login_id"]', { timeout: 10000 });
-    await page.type('input[name="ap_login_id"]', loginId);
-    
-    await page.waitForSelector('input[name="ap_password"]', { timeout: 10000 });
-    await page.type('input[name="ap_password"]', password);
-    
-    // ログインボタン押す（IDを指定しているならこれ）
-    await page.click('#loginBtn');
+    // セレクタが存在するか確認しながら入力・クリックを行う
+    const loginIdSelector = 'input[name="ap_login_id"]';
+    const passwordSelector = 'input[name="ap_password"]';
+    const loginBtnSelector = '#loginBtn';
+
+    const loginIdExists = await page.$(loginIdSelector);
+    if (!loginIdExists) {
+      throw new Error("ログインID入力欄が見つかりませんでした。セレクタを確認してください。");
+    }
+    await page.type(loginIdSelector, loginId);
+
+    const passwordExists = await page.$(passwordSelector);
+    if (!passwordExists) {
+      throw new Error("パスワード入力欄が見つかりませんでした。セレクタを確認してください。");
+    }
+    await page.type(passwordSelector, password);
+
+    const loginBtnExists = await page.$(loginBtnSelector);
+    if (!loginBtnExists) {
+      throw new Error("ログインボタンが見つかりませんでした。セレクタを確認してください。");
+    }
+
+    await new Promise(res => setTimeout(res, 3000));
+
+    // ログインボタン押す
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      page.click(loginBtnSelector)
+    ]);
     
 
 
     // ログイン後の遷移待機 (必要に応じて調整)
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
     console.log("✅ マイナビログイン試行完了");
-
-    // 応募データ詳細URLに遷移
-    await page.goto(applyUrl, { waitUntil: "domcontentloaded" });
-    console.log(`✅ 応募詳細ページ (${applyUrl}) に遷移`);
+    // ログイン後のURLを取得
+    const currentUrl = page.url();
+    console.log(`✅ 応募詳細ページ (${currentUrl}) に遷移`);
 
 
     // 描画待機 (SPAなどの場合、適切な待機処理を追加)
@@ -37,18 +57,9 @@ async function runScraper(rawMessage) {
 
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
-      // XPath指定で要素を取得
-      function getByXPath(xpath) {
-        try {
-          const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-          return result.singleNodeValue;
-        } catch (err) {
-          console.error("❌ XPathエラー:", err);
-          return null;
-        }
-      }
-      const nameEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]');
-      const phoneEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[2]');
+      // querySelectorで取得するように修正
+      const nameEl = document.querySelector('#profile_ss > div.jss141 > dl:nth-child(1) > dd.dd-lst-hd-applicant');
+      const phoneEl = document.querySelector('#profile_ss > div.jss141 > dl:nth-child(2) > dd.ms-phone-no');
       return {
         nameText: nameEl?.textContent.trim() || null,
         phoneText: phoneEl?.textContent.trim() || null // 電話番号がなければ null
