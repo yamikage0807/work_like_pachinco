@@ -10,7 +10,7 @@ async function runScraper(rawMessage) {
   const page = await browser.newPage();
 
   try {
-    await page.goto("https://tenshoku.mynavi.jp/client/", { waitUntil: "domcontentloaded" }); // 仮のURL
+    await page.goto("https://tenshoku.mynavi.jp/client/entrycommunication/", { waitUntil: "domcontentloaded" }); // 仮のURL
 
     await page.waitForSelector('input[name="ap_login_id"]', { timeout: 10000 });
     await page.type('input[name="ap_login_id"]', loginId);
@@ -59,18 +59,9 @@ async function runScraper(rawMessage) {
 
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
-      // XPath指定で要素を取得
-      function getByXPath(xpath) {
-        try {
-          const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-          return result.singleNodeValue;
-        } catch (err) {
-          console.error("❌ XPathエラー:", err);
-          return null;
-        }
-      }
-      const nameEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]');
-      const phoneEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[2]');
+      // querySelectorで取得するように修正
+      const nameEl = document.querySelector('#profile_ss > div.jss141 > dl:nth-child(1) > dd.dd-lst-hd-applicant');
+      const phoneEl = document.querySelector('#profile_ss > div.jss141 > dl:nth-child(2) > dd.ms-phone-no');
       return {
         nameText: nameEl?.textContent.trim() || null,
         phoneText: phoneEl?.textContent.trim() || null // 電話番号がなければ null
