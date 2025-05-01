@@ -6,11 +6,11 @@ async function runScraper(rawMessage) {
     throw new Error("メッセージからログイン情報または応募URLを抽出できませんでした。");
   }
 
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
 
   try {
-    await page.goto("https://tenshoku.mynavi.jp/client/", { waitUntil: "domcontentloaded" }); // 仮のURL
+    await page.goto("https://tenshoku.mynavi.jp/client/entrycommunication/", { waitUntil: "domcontentloaded" }); // 仮のURL
 
     await page.waitForSelector('input[name="ap_login_id"]', { timeout: 10000 });
     await page.type('input[name="ap_login_id"]', loginId);
@@ -20,35 +20,48 @@ async function runScraper(rawMessage) {
     
     // ログインボタン押す（IDを指定しているならこれ）
     await page.click('#loginBtn');
-    
-
 
     // ログイン後の遷移待機 (必要に応じて調整)
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
     console.log("✅ マイナビログイン試行完了");
 
-    // 応募データ詳細URLに遷移
-    await page.goto(applyUrl, { waitUntil: "domcontentloaded" });
-    console.log(`✅ 応募詳細ページ (${applyUrl}) に遷移`);
+    // 応募管理ページに遷移
+    await page.goto("https://tenshoku.mynavi.jp/client/entry/", { waitUntil: "domcontentloaded" });
 
+
+    // メッセージセクションに遷移
+    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    await page.click('.icon-header-message.jss15');
+    console.log("✅ メッセージセクションに遷移完了");
+
+    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    const messageLinkXPath = "/html/body/div/div[2]/div/div[3]/main/div/div/div/main/section/div[3]/div[2]/div[2]/div/table/tbody/tr[1]/td[2]/div[1]/div/a";
+    const messageLinkElements = await page.$x(messageLinkXPath);
+    
+    // 5秒待っても要素が見つからない場合はエラーを返す
+    if (messageLinkElements.length === 0) {
+      await page.waitForXPath(messageLinkXPath, { timeout: 5000 })
+        .catch(() => {
+          throw new Error("メッセージリンクが5秒以内に見つかりませんでした。");
+        });
+    }
+    
+    const [messageLink] = messageLinkElements;
+    if (messageLink) {
+      await messageLink.click();
+    } else {
+      console.error('❌ メッセージリンクが見つかりませんでした');
+    }
+    console.log("✅ メッセージリンククリック完了");
 
     // 描画待機 (SPAなどの場合、適切な待機処理を追加)
     await new Promise(res => setTimeout(res, 3000)); // 3秒待機 (調整が必要)
 
     // 応募者情報の取得 (セレクタは実際のサイトに合わせてください)
     const applicantInfo = await page.evaluate(() => {
-      // XPath指定で要素を取得
-      function getByXPath(xpath) {
-        try {
-          const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-          return result.singleNodeValue;
-        } catch (err) {
-          console.error("❌ XPathエラー:", err);
-          return null;
-        }
-      }
-      const nameEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[1]');
-      const phoneEl = getByXPath('/html/body/div/div[2]/div/div[2]/main/div/div/main/div/section/div/div[2]/div[2]/dl[1]/dd[2]');
+      // querySelectorで取得するように修正
+      const nameEl = document.querySelector('#profile_ss > div.jss141 > dl:nth-child(1) > dd.dd-lst-hd-applicant');
+      const phoneEl = document.querySelector('#profile_ss > div.jss141 > dl:nth-child(2) > dd.ms-phone-no');
       return {
         nameText: nameEl?.textContent.trim() || null,
         phoneText: phoneEl?.textContent.trim() || null // 電話番号がなければ null
